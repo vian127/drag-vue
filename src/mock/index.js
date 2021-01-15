@@ -11,7 +11,8 @@ Mock.mock('/getScheduleList', {
         "colInfo": [], // 需要合并的信息
         "lastColIndex": 1, // 记录最后一次索引
         "lastRowIndex": 0, // 记录行数
-        "num": 1, // 记录次数
+        "num": 1, // 记录次数，
+        "projectId": null, // 项目id
     }],
 });
 /** 项目信息 */

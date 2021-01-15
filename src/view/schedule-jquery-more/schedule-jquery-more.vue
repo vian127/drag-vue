@@ -18,12 +18,12 @@
       <div class="schedule-table">
         <table width="100%" border="1" style="border-collapse: collapse">
           <tr>
-            <th width="20%">人员</th>
+            <th width="150">人员</th>
             <th v-for="(item, index) in dateArr" :key="index">{{ item.slice(5) }}</th>
             <!-- <th width="40%">日期</th> -->
           </tr>
           <tr v-for="(item, index) in scheduleList" :key="item.id">
-            <td>
+            <td  width="150">
               <div class="user-info">
                 <div class="img-box">
                   <img class="img" :src="item.image" alt="" />
@@ -40,11 +40,11 @@
             <template v-for="(dateItem, ind) in dateArr">
               <td :id="'target' + index + ind" :data-rowindex="index" :data-colindex ="ind" :data-colspan="item.info[ind].colNum" 
                 v-if='item.info.length > 0 && item.info[ind].colNum && ind == item.info[ind].colIndex-1' :key="ind" :colspan="item.info[ind].colNum">
-                <div>{{item.info[ind].title}}</div>
+                <div class='one-text' :title='item.info[ind].title' @click="viewDatile(item.info[ind].projectId)">{{item.info[ind].title}}</div>
               </td>
               <td :id="'target' + index + ind" :data-rowindex="index" :data-colindex ="ind" 
                 v-if='!item.info.length > 0 || !item.info[ind].isCol' :key="ind">
-                  <div>教育2{{item.info.length > 0 ? item.info[ind].isCol : 'false'}}</div>
+                  <div>教育2</div>
                 </td>
             </template>
           </tr>
@@ -123,7 +123,7 @@ export default {
       this.getSchedule();
       setTimeout(() => {
         this.initDrag();
-      }, 100);
+      }, 500);
     },
     /** 初始化拖拽 */
     initDrag() {
@@ -139,38 +139,35 @@ export default {
         hoverClass: "droppable-active",
         addClasses: true,
         drop: function (event, ui) {
-          var $td = $(this).parent().find('td')[1];
-          // $($td).children().remove();
           var data = JSON.parse(ui.draggable[0].dataset.value);
-          var source = `<div class='box-move'>
-                          <span>${data.title}</span>
-                          <i class='el-icon-delete img' style='display:none;'></i>
-                        </div>`
-          // $($td).append(source);
-          $($td).find(".box-move").mouseenter(function () {
-              $(this).find(".img").show();
-            });
-
-          $($td).find(".box-move").mouseleave(function () {
-              $(this).find(".img").hide();
-            });
-
-          $($td).find(".img").click(function () {
-            $(this).parent(".box-move").remove();
-          });
-          
-         
-
+           
           // 获取行的索引
           var rowIndex = Number(event.target.dataset.rowindex);
           // 获取列的索引(加1)
           var colIndex = Number(event.target.dataset.colindex)+1;
-          // 是否有合并的td
-          if(Number(event.target.dataset.colspan) > colIndex){
-              colIndex = Number(event.target.dataset.colspan);
-          }
-          // 记录最后一列列索引值
+             // 记录最后一列列索引值
           var lastColIndex = that.scheduleList[rowIndex].lastColIndex;
+          if(colIndex < lastColIndex){
+            
+              that.isCover(rowIndex,colIndex,data);
+              return;
+          }
+          // 是否有合并的td
+          // if(Number(event.target.dataset.colspan) > colIndex){
+          //     colIndex = Number(event.target.dataset.colspan);
+          // }
+          var arr = that.scheduleList[rowIndex].colInfo;
+          var flag = false;
+          arr.forEach(el => {
+            if(el.id === data.id){
+             flag = true;
+            }
+          });
+          if(flag){
+              that.$message({message:'该项目已在查询进程上',type:'error'});
+              return;
+          }
+       
           that.scheduleList[rowIndex].lastColIndex = colIndex;
 
           // 记录行数
@@ -187,13 +184,14 @@ export default {
           // 日期起始的索引
           // var startDateIndex = that.dateArr.indexOf(projectStartDate) > 0 ? that.dateArr.indexOf(projectStartDate) : 1;
           var newArr = [];
-          var arr = that.scheduleList[rowIndex].colInfo;
+          // var arr = that.scheduleList[rowIndex].colInfo;
           var num = that.scheduleList[rowIndex].num;
           that.scheduleList[rowIndex].num += 1;
-          arr.push({colIndex: num==1? 1 : lastColIndex+1, colNum: num==1 ? colIndex-lastColIndex +1 : colIndex-lastColIndex, title: data.title});
+        
+          arr.push({colIndex: num==1? 1 : lastColIndex+1, colNum: num==1 ? colIndex-lastColIndex +1 : colIndex-lastColIndex, title: data.title, id: data.id});
           // 生成日期索引对应的数据
           newArr = that.dateArr.map( (v, i) => {
-            return {colIndex: i +1, colNum: 0,isCol: false, title: ''};
+            return {colIndex: i +1, colNum: 0,isCol: false, title: '',id: null};
           });
           // 合并数据新增标识
           for (var i = 0; i < arr.length; i++) {
@@ -205,13 +203,15 @@ export default {
                       newArr[j].colNum = arr[i].colNum;
                       newArr[j].isCol = true;
                       newArr[j].title = arr[i].title;
+                      newArr[j].projectId = arr[i].id;
                       sum++;
                       index = j;
                   } else {
                       if (index > -1) {
                           if (arr[i].colIndex == newArr[index].colIndex && sum < col) {
                               newArr[j].isCol = true;
-                               newArr[j].title = arr[i].title;
+                              //  newArr[j].title = arr[i].title;
+                              //  newArr[j].projectId = arr[i].id;
                               sum++;
                           } else {
                               break;
@@ -223,12 +223,46 @@ export default {
           console.log(newArr);
           that.scheduleList[rowIndex].info = newArr;
           that.scheduleList[rowIndex].colInfo = arr;
-          // that.$set(that.scheduleList[rowIndex], "colNum", colIndex);
-            // that.initDrag();
-            console.log(that.scheduleList);
+          //  this.initDrag();
+          console.log(that.scheduleList);
         },
       });
     },
+    /**查询详情 */
+    viewDatile(id){
+      var data = this.projectList.find(item=>{
+        return item.id ==id;
+      })
+      alert(data.id);
+    },
+    /**是否覆盖 */
+    isCover(rowIndex,colIndex,data) {
+      var that = this;
+      that.$confirm('已存在项目,是否覆盖?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+          var flag = that.scheduleList[rowIndex].colInfo.find(item=>{
+            return item.id == data.id
+          });
+          if(flag){
+            that.$message({message:'该项目已在查询进程上',type:'error'});
+            return;
+          }
+          that.scheduleList[rowIndex].info[colIndex-1].projectId = data.id;
+          that.scheduleList[rowIndex].info[colIndex-1].title = data.title;
+          that.$message({
+            type: 'success',
+            message: '覆盖成功'
+          });        
+      }).catch(() => {
+        that.$message({
+          type: 'info',
+          message: '取消覆盖'
+        });          
+      });
+    }
   },
 };
 </script>
@@ -258,6 +292,7 @@ export default {
   width: 75%;
   height: 520px;
   background: #eee;
+  overflow: auto;
   .user-info {
     display: flex;
     .img-box {
@@ -310,4 +345,12 @@ export default {
 .droppable-active {
   background: goldenrod;
 }
+ .one-text {
+      display: inline-block;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow:ellipsis;
+    }
+
 </style>
