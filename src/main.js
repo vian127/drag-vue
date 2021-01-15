@@ -5,6 +5,7 @@ import ElementUI from 'element-ui';
 import './assets/style/rest.css'
 import 'element-ui/lib/theme-chalk/index.css';
 import App from './App'
+import store from '@/store/store'
 import router from './router'
 
 Vue.use(ElementUI);
@@ -16,6 +17,7 @@ Vue.prototype.$axios = axios
 new Vue({
   el: '#app',
   router,
+  store,
   components: { App },
   template: '<App/>'
 })

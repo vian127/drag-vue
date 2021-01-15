@@ -38,15 +38,15 @@
               </div>
             </td>
             <template v-for="(dateItem, ind) in dateArr">
-              <td :id="'target' + index + ind" :data-rowindex="index" :data-colindex ="ind" :data-colspan="item.colNum" v-if='item.colNum && ind == item.colIndex-1' :key="ind" :colspan="item.colNum">
-                <div>教育1</div>
+              <td :id="'target' + index + ind" :data-rowindex="index" :data-colindex ="ind" :data-colspan="item.info[ind].colNum" 
+                v-if='item.info.length > 0 && item.info[ind].colNum && ind == item.info[ind].colIndex-1' :key="ind" :colspan="item.info[ind].colNum">
+                <div>{{item.info[ind].title}}</div>
               </td>
-              <td :id="'target' + index + ind" :data-rowindex="index" :data-colindex ="ind" v-if='!item.colNum || ind > ((item.colIndex-1 + item.colNum)-1) || ind < item.colIndex-1' :key="ind">
-                <div>教育2</div>
-              </td>
+              <td :id="'target' + index + ind" :data-rowindex="index" :data-colindex ="ind" 
+                v-if='!item.info.length > 0 || !item.info[ind].isCol' :key="ind">
+                  <div>教育2{{item.info.length > 0 ? item.info[ind].isCol : 'false'}}</div>
+                </td>
             </template>
-
-            <!-- <td :class="'target' + (index + 1) + 4">教育</td> -->
           </tr>
         </table>
       </div>
@@ -75,11 +75,10 @@
 <script>
 import "../../mock/index.js";
 import $ from "jquery";
-// import '../../../static/jQuery1.11.3.min.js'
 import "../../../static/jquery-ui.js";
 import FN from "../../util/date.js";
 export default {
-  name: "ScheduleJquery",
+  name: "ScheduleJqueryMore",
   data() {
     return {
       scheduleList: [],
@@ -104,9 +103,6 @@ export default {
         // console.log(res);
         if (res.status == 200) {
           this.scheduleList = res.data.scheduleList;
-          //   this.scheduleList[1].colIndex = 1;
-          //   this.scheduleList[1].colNum = 2;
-          // console.log(this.scheduleList);
         }
       });
     },
@@ -144,18 +140,13 @@ export default {
         addClasses: true,
         drop: function (event, ui) {
           var $td = $(this).parent().find('td')[1];
-          $($td).children().remove();
-          // $(this).children().remove();
-          // var source = ui.draggable.clone();
+          // $($td).children().remove();
           var data = JSON.parse(ui.draggable[0].dataset.value);
-          var source =
-            "<div class='box-move'>" +
-            "<span>" +
-            data.title +
-            "</span>" +
-            "<i class='el-icon-delete img' style='display:none;'></i>" +
-            "</div>";
-          $($td).append(source);
+          var source = `<div class='box-move'>
+                          <span>${data.title}</span>
+                          <i class='el-icon-delete img' style='display:none;'></i>
+                        </div>`
+          // $($td).append(source);
           $($td).find(".box-move").mouseenter(function () {
               $(this).find(".img").show();
             });
@@ -167,23 +158,26 @@ export default {
           $($td).find(".img").click(function () {
             $(this).parent(".box-move").remove();
           });
-          // 记录最后一列列索引值
-          var lastColIndex = that.$store.state.lastColIndex;
-          // 记录行数
-          var lastRowIndex = that.$store.state.lastRowIndex;
+          
+         
+
           // 获取行的索引
           var rowIndex = Number(event.target.dataset.rowindex);
-          that.$store.commit('changeRowIndex', rowIndex);
           // 获取列的索引(加1)
           var colIndex = Number(event.target.dataset.colindex)+1;
           // 是否有合并的td
           if(Number(event.target.dataset.colspan) > colIndex){
               colIndex = Number(event.target.dataset.colspan);
           }
-          that.$store.commit('changeColIndex', colIndex);
+          // 记录最后一列列索引值
+          var lastColIndex = that.scheduleList[rowIndex].lastColIndex;
+          that.scheduleList[rowIndex].lastColIndex = colIndex;
 
+          // 记录行数
+          var lastRowIndex = that.scheduleList[rowIndex].lastRowIndex;
+          that.scheduleList[rowIndex].lastRowIndex = rowIndex;
 
-
+          
           // 获取列表头对应的日期
           var endDate = that.dateArr[colIndex -1];
           // 查询的开始日期
@@ -192,9 +186,44 @@ export default {
           var projectStartDate = data.start;
           // 日期起始的索引
           // var startDateIndex = that.dateArr.indexOf(projectStartDate) > 0 ? that.dateArr.indexOf(projectStartDate) : 1;
-      
-          that.$set(that.scheduleList[rowIndex], "colIndex",1);
-          that.$set(that.scheduleList[rowIndex], "colNum", colIndex);
+          var newArr = [];
+          var arr = that.scheduleList[rowIndex].colInfo;
+          var num = that.scheduleList[rowIndex].num;
+          that.scheduleList[rowIndex].num += 1;
+          arr.push({colIndex: num==1? 1 : lastColIndex+1, colNum: num==1 ? colIndex-lastColIndex +1 : colIndex-lastColIndex, title: data.title});
+          // 生成日期索引对应的数据
+          newArr = that.dateArr.map( (v, i) => {
+            return {colIndex: i +1, colNum: 0,isCol: false, title: ''};
+          });
+          // 合并数据新增标识
+          for (var i = 0; i < arr.length; i++) {
+              var col = arr[i].colNum;
+              var sum = 0;
+              var index = -1;
+              for (var j = 0; j < newArr.length; j++) {
+                  if (arr[i].colIndex == newArr[j].colIndex) {
+                      newArr[j].colNum = arr[i].colNum;
+                      newArr[j].isCol = true;
+                      newArr[j].title = arr[i].title;
+                      sum++;
+                      index = j;
+                  } else {
+                      if (index > -1) {
+                          if (arr[i].colIndex == newArr[index].colIndex && sum < col) {
+                              newArr[j].isCol = true;
+                               newArr[j].title = arr[i].title;
+                              sum++;
+                          } else {
+                              break;
+                          }
+                      }
+                  }
+              }
+          }
+          console.log(newArr);
+          that.scheduleList[rowIndex].info = newArr;
+          that.scheduleList[rowIndex].colInfo = arr;
+          // that.$set(that.scheduleList[rowIndex], "colNum", colIndex);
             // that.initDrag();
             console.log(that.scheduleList);
         },
